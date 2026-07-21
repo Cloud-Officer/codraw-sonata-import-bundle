@@ -61,19 +61,38 @@ class Importer implements ImporterInterface
 
     public function buildFromFile(Import $import, \SplFileInfo $file): void
     {
-        $import->setFileContent(file_get_contents($file->getRealPath()));
+        $filePath = $file->getRealPath();
 
-        $handle = fopen($file->getRealPath(), 'r');
+        if (false === $filePath || false === ($fileContent = file_get_contents($filePath))) {
+            throw new \RuntimeException('Unable to read import file.');
+        }
 
-        $headers = fgetcsv($handle);
+        $import->setFileContent($fileContent);
+
+        $handle = fopen($filePath, 'r');
+
+        if (false === $handle) {
+            throw new \RuntimeException('Unable to open import file.');
+        }
+
+        $headers = fgetcsv($handle, escape: '');
+
+        if (false === $headers || [null] === $headers) {
+            fclose($handle);
+
+            throw new \RuntimeException('Import file is empty.');
+        }
+
         $samples = [];
         for ($i = 0; $i < 10; ++$i) {
-            $row = fgetcsv($handle);
+            $row = fgetcsv($handle, escape: '');
             if (!$row) {
                 break;
             }
             $samples[] = $row;
         }
+
+        fclose($handle);
 
         $this->columnFactory->buildColumns(
             $import,
@@ -89,8 +108,8 @@ class Importer implements ImporterInterface
         $file = tempnam(sys_get_temp_dir(), 'csv_');
         file_put_contents($file, $import->getFileContent());
         register_shutdown_function('unlink', $file);
-        $handle = fopen($file, 'r+');
-        $headers = fgetcsv($handle);
+        $handle = fopen($file, 'r');
+        $headers = fgetcsv($handle, escape: '');
 
         $identifierHeaderName = $import->getIdentifierHeaderName();
         $columnMapping = $import->getColumnMapping();
@@ -104,8 +123,30 @@ class Importer implements ImporterInterface
             $identifierHeaderNames[$column->getHeaderName()] = $column->getMappedTo();
         }
 
-        while (($row = fgetcsv($handle)) !== false) {
+        while (($row = fgetcsv($handle, escape: '')) !== false) {
             ++$line;
+
+            if ([null] === $row) {
+                continue;
+            }
+
+            if (\count($headers) !== \count($row)) {
+                $this->notifier
+                    ->send(
+                        SonataNotification::error(
+                            \sprintf(
+                                'Skipped line [%s]. Expected [%s] columns but found [%s].',
+                                $line,
+                                \count($headers),
+                                \count($row)
+                            )
+                        )
+                    )
+                ;
+
+                continue;
+            }
+
             $data = array_combine($headers, $row);
             $id = $data[$identifierHeaderName];
             $criteria = [];
@@ -113,7 +154,23 @@ class Importer implements ImporterInterface
                 $criteria[$mappedTo] = $data[$headerName];
             }
 
-            $model = $this->findOne($import->getEntityClass(), $criteria, $import->getInsertWhenNotFound());
+            try {
+                $model = $this->findOne($import->getEntityClass(), $criteria, $import->getInsertWhenNotFound());
+            } catch (NonUniqueResultException) {
+                $this->notifier
+                    ->send(
+                        SonataNotification::error(
+                            \sprintf(
+                                'Skipped Id [%s] at line [%s]. More than one entity match the identifier. Make sure you are using unique id value.',
+                                implode(', ', $criteria),
+                                $line
+                            )
+                        )
+                    )
+                ;
+
+                continue;
+            }
 
             if (null === $model) {
                 $this->notifier
@@ -157,6 +214,8 @@ class Importer implements ImporterInterface
 
             ++$saved;
         }
+
+        fclose($handle);
 
         try {
             $this->managerRegistry->getManagerForClass($import->getEntityClass())->flush();

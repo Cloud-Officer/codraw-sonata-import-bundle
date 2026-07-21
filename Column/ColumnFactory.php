@@ -30,7 +30,7 @@ class ColumnFactory
             $columnSamples = [];
 
             foreach ($samples as $rowSample) {
-                $columnSample = $rowSample[$index];
+                $columnSample = $rowSample[$index] ?? null;
 
                 if (null === $column->getSample()) {
                     $column->setSample($columnSample);

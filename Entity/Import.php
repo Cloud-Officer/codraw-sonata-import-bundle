@@ -213,9 +213,9 @@ class Import implements GroupSequenceProviderInterface, \Stringable
                         ->addViolation()
                     ;
                 }
-            }
 
-            $asIdentifier = true;
+                $asIdentifier = true;
+            }
         }
 
         if (!$asIdentifier) {

@@ -15,19 +15,30 @@
         }
     ],
     "require": {
-        "php": ">=8.5",
+        "php": "^8.5",
+        "doctrine/collections": "^2.2",
         "doctrine/orm": "^3.6",
+        "doctrine/persistence": "^2.2 || ^3.0",
         "codraw/sonata-extra-bundle": "^0.39",
         "sonata-project/admin-bundle": "^4.8",
         "sonata-project/doctrine-orm-admin-bundle": "^4.2",
+        "symfony/config": "^6.4.0",
+        "symfony/dependency-injection": "^6.4.0",
         "symfony/event-dispatcher": "^6.4.0",
+        "symfony/form": "^6.4.0",
+        "symfony/http-foundation": "^6.4.0",
+        "symfony/http-kernel": "^6.4.0",
         "symfony/notifier": "^6.4.0",
+        "symfony/property-access": "^6.4.0",
         "symfony/validator": "^6.4.0"
     },
     "require-dev": {
         "codraw/tester": "^0.39",
         "knplabs/doctrine-behaviors": "*",
         "phpunit/phpunit": "^11.3 || ^12.0"
+    },
+    "suggest": {
+        "knplabs/doctrine-behaviors": "To enable the doctrine translation column extractor"
     },
     "minimum-stability": "dev",
     "prefer-stable": true,
